@@ -6,6 +6,7 @@ from skimage.filters import threshold_li
 from skimage.exposure import equalize_adapthist
 from skimage.morphology import remove_small_objects, ball, binary_erosion
 from scipy.ndimage import median_filter
+from scipy.ndimage import generate_binary_structure
 from sklearn.linear_model import LinearRegression
 
 
@@ -68,6 +69,16 @@ def segment_like_paper(patch, clahe_size=78, min_object_size=500, radius=2):
     # 4) remove small objects should correspond to size threshold in 3D Object Counter
     mask = remove_small_objects(mask, min_object_size)
     return mask
+
+def continuous_erosion_iterative(mask, n_iterations=10, connectivity=1):
+
+    selem = generate_binary_structure(3, connectivity=connectivity)
+
+    eroded = [binary_erosion(mask, selem)]
+    for _ in range(n_iterations-1):
+        eroded.append(binary_erosion(eroded[-1], selem))
+
+    return np.array([e.sum()/mask.sum() for e in eroded])
 
 def continuous_erosion(mask, erosion_radius=None):
     '''
