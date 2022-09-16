@@ -4,11 +4,32 @@ from io import TextIOWrapper
 import numpy as np
 from skimage.filters import threshold_li
 from skimage.exposure import equalize_adapthist
-from skimage.morphology import remove_small_objects, ball, binary_erosion
+from skimage.morphology import remove_small_objects, ball, disk, binary_erosion
 from scipy.ndimage import median_filter
 from scipy.ndimage import generate_binary_structure
 from sklearn.linear_model import LinearRegression
 
+def disk_centered(radius, dtype=np.uint8):
+    """Generates a flat, disk-shaped footprint.
+    A pixel is within the neighborhood if the Euclidean distance between
+    it and the origin is no greater than radius.
+    Parameters
+    ----------
+    radius : int
+        The radius of the disk-shaped footprint.
+    Other Parameters
+    ----------------
+    dtype : data-type
+        The data type of the footprint.
+    Returns
+    -------
+    footprint : ndarray
+        The footprint where elements of the neighborhood are 1 and 0 otherwise.
+    """
+    radius_ceil = int(np.ceil(radius))
+    L = np.arange(-radius_ceil, radius_ceil + 1)
+    X, Y = np.meshgrid(L, L)
+    return np.array((X ** 2 + Y ** 2) <= radius ** 2, dtype=dtype)
 
 def parse_simulation_dat(file):
 
@@ -50,21 +71,36 @@ def fwhm2sigma(fwhm):
     FACTOR = 2 * np.sqrt(2 * np.log(2))
     return fwhm / FACTOR
 
-def segment_like_paper(patch, clahe_size=78, min_object_size=500, radius=2):
+def segment_like_paper(patch, clahe_size=78, min_object_size=500, radius=2, planewise_median=True, planewise_clahe=True, imagej_outlier_bright=True, imagej_outlier_dark=True):
     '''
     Segmentation pipeline similar to ChromEMT pipeline
     clahe_size is in pixels, 78 ~ 100nm at 1.28nm pixel size
     '''
 
+    # normailzed clip limit? TODO: is this equivalent to 3 in ImageJ?
+    cl = 3 / 256
+
     # 1) CLAHE
-    patch_eq = equalize_adapthist(patch, clahe_size)
+    if planewise_clahe:
+        patch_eq = np.stack([equalize_adapthist(patch_i, clahe_size, cl) for patch_i in patch])
+    else:
+        patch_eq = equalize_adapthist(patch, clahe_size, cl)
     
     # 2) Li thresholding
     mask = patch_eq < threshold_li(patch_eq)
 
-    # 3) ImaheJ "Remove Outliers..." should correspond to median filter
-    # TODO: planewise matches ImageJ more
-    mask = median_filter(mask, footprint=ball(radius))
+    # 3) ImageJ "Remove Outliers..." should correspond to median filter
+    # NOTE: planewise matches ImageJ more
+    if planewise_median:
+        for mask_i in mask:
+            # NOTE: ImageJ seems to use odd-sized radius+0.5 selems
+            # NOTE: we replicate doing ImageJ remove bright (in inverted LUT, so actually dark) and then remove dark
+            if imagej_outlier_bright:
+                mask_i |= median_filter(mask_i, footprint=disk_centered(radius+0.5))
+            if imagej_outlier_dark:
+                mask_i &= median_filter(mask_i, footprint=disk_centered(radius+0.5))
+    else:
+        mask = median_filter(mask, footprint=ball(radius))
 
     # 4) remove small objects should correspond to size threshold in 3D Object Counter
     mask = remove_small_objects(mask, min_object_size)
