@@ -46,7 +46,8 @@ def parse_simulation_zip(file, subfile=None):
             try:
                 f = next((f for f in _zip.filelist if f.filename == subfile))
             except StopIteration:
-                raise ValueError(f'file {subfile} not found in zip archive {file}')
+                raise ValueError(f'file {subfile} not found in zip archive {file}. Available files in zip:\n* ' +
+                                '\n* '.join([f.filename for f in _zip.filelist]))
         with _zip.open(f) as fd:
             return parse_simulation(TextIOWrapper(fd))
 
