@@ -36,10 +36,18 @@ def parse_simulation_dat(file):
     with open(file) as fd:
         return parse_simulation(fd)
 
-def parse_simulation_zip(file):
+def parse_simulation_zip(file, subfile=None):
 
     with ZipFile(file) as _zip:
-        with _zip.open(_zip.filelist[0]) as fd:
+        
+        if subfile is None:
+            f = _zip.filelist[0]
+        else:
+            try:
+                f = next((f for f in _zip.filelist if f.filename == subfile))
+            except StopIteration:
+                raise ValueError(f'file {subfile} not found in zip archive {file}')
+        with _zip.open(f) as fd:
             return parse_simulation(TextIOWrapper(fd))
 
 def parse_simulation(fd):
