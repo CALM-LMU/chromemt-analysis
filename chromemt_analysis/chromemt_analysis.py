@@ -4,7 +4,7 @@ from io import TextIOWrapper
 import numpy as np
 from skimage.filters import threshold_li
 from skimage.exposure import equalize_adapthist
-from skimage.morphology import remove_small_objects, ball, disk, binary_erosion
+from skimage.morphology import remove_small_objects, ball, binary_erosion
 from scipy.ndimage import median_filter
 from scipy.ndimage import generate_binary_structure
 from sklearn.linear_model import LinearRegression
@@ -152,6 +152,32 @@ def continuous_erosion(mask, erosion_radius=None):
 
     return eroded.sum(axis=(1,2,3)) / mask.sum()
 
+def linear_fit_to_residual_volume2(residual_volume, erosion_radius=None, n_first_values_to_include=5):
+    '''
+    Fit linear model erosion_radius ~ residual volume to residual volumes ( x ~ y )
+    Returns
+    =======
+    estimated_diameter: float
+        the estimated diameter (2x erosion_radius intercept / intersection of model with x-axis)
+    model: LinearModel
+        the fitted model
+    '''
+
+    # default radii: integer pixels
+    if erosion_radius is None:
+        erosion_radius = np.arange(1, residual_volume.size+1)
+
+    residual_volume = residual_volume[:n_first_values_to_include]
+    erosion_radius = erosion_radius[:n_first_values_to_include]
+
+    # fit erosion_radius ~ residual_volume + 1
+    # that way, intercept of fitted line := average radius
+    lm = LinearRegression()
+    lm.fit(residual_volume.reshape(-1, 1), erosion_radius)
+    
+    return lm.intercept_ * 2, lm
+
+
 def linear_fit_to_residual_volume(residual_volume, erosion_radius=None, n_first_values_to_include=5):
     '''
     Fit linear model erosion_radius ~ residual volume to residual volumes
@@ -170,7 +196,17 @@ def linear_fit_to_residual_volume(residual_volume, erosion_radius=None, n_first_
     residual_volume = residual_volume[:n_first_values_to_include]
     erosion_radius = erosion_radius[:n_first_values_to_include]
 
+    # fit residual vol ~ erosion_radius + 1
     lm = LinearRegression()
-    lm.fit(residual_volume.reshape(-1, 1), erosion_radius)
+    lm.fit(erosion_radius.reshape(-1, 1), residual_volume)
     
-    return lm.intercept_ * 2, lm
+    # estimated radius: zero-crossing of fited line
+    radius_estimated =  - lm.intercept_ / lm.coef_[0]
+
+    return radius_estimated * 2, lm
+
+def hypersphere(rank, radius):
+    '''
+    rank-n hypersphere, should be just like disk/ball
+    '''
+    return np.linalg.norm(np.stack(np.meshgrid(*[np.arange(-radius, radius+1)]*rank, indexing='ij')), axis=0)<=radius
