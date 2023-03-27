@@ -7,6 +7,7 @@ from skimage.exposure import equalize_adapthist
 from skimage.morphology import remove_small_objects, ball, binary_erosion
 from scipy.ndimage import median_filter
 from scipy.ndimage import generate_binary_structure
+from scipy.ndimage import distance_transform_edt
 from sklearn.linear_model import LinearRegression
 
 def disk_centered(radius, dtype=np.uint8):
@@ -151,6 +152,38 @@ def continuous_erosion(mask, erosion_radius=None):
     eroded = np.stack([binary_erosion(mask, ball(r)) for r in erosion_radius])
 
     return eroded.sum(axis=(1,2,3)) / mask.sum()
+
+
+def continuous_erosion_edt(mask, erosion_radius=None):
+    '''
+    Continuous erosion to estimate chromatin thickness
+    Calculated via Euclidean distance tranform and measuring fraction of mask having d > erosion radius
+
+    Parameters
+    ==========
+    mask: binary array of ndim == 3
+        the mask to erode
+    erosion_radius: iterable of floats/ints (optional)
+        radii at which to calculate residual chromatin volume after erosion
+        defaults to integer pixel radii up to half the z size of mask
+
+    Returns
+    =======
+    residual_volumes: float array with shape == (len(erosion_radius),)
+        residual volume fractions
+    '''
+
+    dt = distance_transform_edt(mask)
+
+    # default radii: integer pixels
+    if erosion_radius is None:
+        erosion_radius = np.arange(1, mask.shape[0]//2)
+
+    # residual volume: area of EDT > erosion radius
+    eroded = np.array([(dt > r).sum() for r in erosion_radius])
+
+    return eroded / mask.sum()
+
 
 def linear_fit_to_residual_volume2(residual_volume, erosion_radius=None, n_first_values_to_include=5):
     '''
