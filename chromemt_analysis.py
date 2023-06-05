@@ -168,7 +168,7 @@ def continuous_erosion(mask, erosion_radius=None):
 def continuous_erosion_edt(mask, erosion_radius=None):
     '''
     Continuous erosion to estimate chromatin thickness
-    Calculated via Euclidean distance tranform and measuring fraction of mask having d > erosion radius
+    Calculated via Euclidean distance transform and measuring fraction of mask having d > erosion radius
 
     Parameters
     ==========
