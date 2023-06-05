@@ -198,7 +198,7 @@ def continuous_erosion_edt(mask, erosion_radius=None):
 
 def linear_fit_to_residual_volume2(residual_volume, erosion_radius=None, n_first_values_to_include=5):
     '''
-    Fit linear model residual_volume ~ erosion_radius to residual volumes ( x ~ y )
+    Fit linear model erosion_radius ~ residual_volume to residual volumes ( x ~ y )
     Returns
     =======
     estimated_diameter: float
@@ -224,7 +224,7 @@ def linear_fit_to_residual_volume2(residual_volume, erosion_radius=None, n_first
 
 def linear_fit_to_residual_volume(residual_volume, erosion_radius=None, n_first_values_to_include=5):
     '''
-    Fit linear model erosion_radius ~ residual volume to residual volumes
+    Fit linear model residual volume ~ erosion_radius to residual volumes
     Returns
     =======
     estimated_diameter: float
